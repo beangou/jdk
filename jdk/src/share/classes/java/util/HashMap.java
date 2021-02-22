@@ -386,8 +386,12 @@ public class HashMap<K,V>
     public V put(K key, V value) {
         if (key == null)
             return putForNullKey(value);
+
+        // 1. 调用哈希函数，根据key的hashCode 获取数组下标
         int hash = hash(key.hashCode());
         int i = indexFor(hash, table.length);
+
+        // 2. 遍历 对应下标的链表，如果找到这个key，新值替换旧值，返回 旧值
         for (Entry<K,V> e = table[i]; e != null; e = e.next) {
             Object k;
             if (e.hash == hash && ((k = e.key) == key || key.equals(k))) {
@@ -399,6 +403,8 @@ public class HashMap<K,V>
         }
 
         modCount++;
+
+        // 3. 新增节点 到链表
         addEntry(hash, key, value, i);
         return null;
     }
@@ -482,6 +488,9 @@ public class HashMap<K,V>
 
     /**
      * Transfers all entries from current table to newTable.
+     * 使用 双重循环 遍历所有节点，还是使用 头插法 将 节点 查到链表中
+     * 一层循环 表里 数组
+     *     二层循环 遍历 链表
      */
     void transfer(Entry[] newTable) {
         Entry[] src = table;
@@ -491,6 +500,7 @@ public class HashMap<K,V>
             if (e != null) {
                 src[j] = null;
                 do {
+                    // 头插法
                     Entry<K,V> next = e.next;
                     int i = indexFor(e.hash, newCapacity);
                     e.next = newTable[i];
@@ -763,8 +773,11 @@ public class HashMap<K,V>
      */
     void addEntry(int hash, K key, V value, int bucketIndex) {
         Entry<K,V> e = table[bucketIndex];
+
+        // 使用尾插法 将新增的节点 加到 链表中（表头节点 称为 新节点的next节点）
         table[bucketIndex] = new Entry<K,V>(hash, key, value, e);
         if (size++ >= threshold)
+            // 如果 map的元素个数 大于 阈值，则扩容数组，改为 原数组2倍大小
             resize(2 * table.length);
     }
 
