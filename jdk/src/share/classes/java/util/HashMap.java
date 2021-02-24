@@ -404,7 +404,7 @@ public class HashMap<K,V>
 
         modCount++;
 
-        // 3. 新增节点 到链表
+        // 3. 新增节点 到链表(如果 map的元素个数 大于 阈值，则扩容数组，改为 原数组2倍大小)
         addEntry(hash, key, value, i);
         return null;
     }
