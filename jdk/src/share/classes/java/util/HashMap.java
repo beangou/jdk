@@ -329,12 +329,14 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      * are already reasonably distributed (so don't benefit from
      * spreading), and because we use trees to handle large sets of
      * collisions in bins, we just XOR some shifted bits in the
-     * cheapest possible way to reduce systematic lossage, as well as
+     * cheapest possible way to reduce systematic lossage（系统损失）, as well as
      * to incorporate impact of the highest bits that would otherwise
      * never be used in index calculations because of table bounds.
      */
     static final int hash(Object key) {
         int h;
+        // 根据key的hashCode 进行二次哈希， 具体计算方式 和 jdk1.7不一样
+        // 为什么要做 二次哈希？ 减小哈希冲突，让数据更加均匀的分布到数组中
         return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
     }
 
@@ -564,22 +566,28 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      * @return the node, or null if none
      */
     final Node<K,V> getNode(int hash, Object key) {
+        // 1. 计算好 二次hash值后，找出 对应数组的下标
+        // 2. 如果 当前数组下标对应的节点为null，直接返回null, 不为 null，则继续执行
         Node<K,V>[] tab; Node<K,V> first, e; int n; K k;
         if ((tab = table) != null && (n = tab.length) > 0 &&
             (first = tab[(n - 1) & hash]) != null) {
             if (first.hash == hash && // always check first node
                 ((k = first.key) == key || (key != null && key.equals(k))))
+                // 2. 看第一个节点hash、key 是否匹配，匹配 则直接返回
                 return first;
             if ((e = first.next) != null) {
                 if (first instanceof TreeNode)
+                    // 3. 如果是树节点，则查找树
                     return ((TreeNode<K,V>)first).getTreeNode(hash, key);
                 do {
                     if (e.hash == hash &&
                         ((k = e.key) == key || (key != null && key.equals(k))))
+                        // 4. 否则，遍历 链表
                         return e;
                 } while ((e = e.next) != null);
             }
         }
+        // 5. 没找到，返回null
         return null;
     }
 
@@ -625,21 +633,31 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                    boolean evict) {
         Node<K,V>[] tab; Node<K,V> p; int n, i;
         if ((tab = table) == null || (n = tab.length) == 0)
+            // 1. 先判断 数组是否为空(null or 数组长度为0), 是 则初始化长度为2的倍数的数组
             n = (tab = resize()).length;
         if ((p = tab[i = (n - 1) & hash]) == null)
+            // 2. 根据前面key计算出来的hash值，找出数组相应的元素，判断 是否为空，
+            // 如果为空， 则新建节点，并赋值给数组相应位置的元素
             tab[i] = newNode(hash, key, value, null);
         else {
+            // 3. 否则，表示 数组下标相应元素有值
             Node<K,V> e; K k;
             if (p.hash == hash &&
                 ((k = p.key) == key || (key != null && key.equals(k))))
+                // 3.1 数组相应元素的key的 二次hash值 和 key 均相等
                 e = p;
             else if (p instanceof TreeNode)
+                // 3.2 如果该节点 是树节点，则将新的节点插入到 树中
                 e = ((TreeNode<K,V>)p).putTreeVal(this, tab, hash, key, value);
             else {
+                // 3.3 创建新的节点，并放到链表的尾结点，如果 在链表中 匹配到相应的key，则替换旧的value
                 for (int binCount = 0; ; ++binCount) {
                     if ((e = p.next) == null) {
+                        // 使用 尾插法 将新的节点插入到 链表中
                         p.next = newNode(hash, key, value, null);
                         if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
+                            // 如果链表节点数 超过8，并且数组的长度大于等于64（看方法里面具体实现）则将链表转为红黑树
+                            // 如果 长度小于 64，则 扩容
                             treeifyBin(tab, hash);
                         break;
                     }
@@ -654,11 +672,13 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                 if (!onlyIfAbsent || oldValue == null)
                     e.value = value;
                 afterNodeAccess(e);
+                // 4. 匹配到旧数据，返回旧值
                 return oldValue;
             }
         }
         ++modCount;
         if (++size > threshold)
+            // 5. 如果hashmap的元素数目 大于 阈值，则扩容
             resize();
         afterNodeInsertion(evict);
         return null;
@@ -700,9 +720,11 @@ public class HashMap<K,V> extends AbstractMap<K,V>
         }
         threshold = newThr;
         @SuppressWarnings({"rawtypes","unchecked"})
-            Node<K,V>[] newTab = (Node<K,V>[])new Node[newCap];
+        // 扩容为 2倍大小的数组
+        Node<K,V>[] newTab = (Node<K,V>[])new Node[newCap];
         table = newTab;
         if (oldTab != null) {
+            // 双重循环 旧的数组 以及 元素对应的链表 或者 树
             for (int j = 0; j < oldCap; ++j) {
                 Node<K,V> e;
                 if ((e = oldTab[j]) != null) {
@@ -710,8 +732,10 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                     if (e.next == null)
                         newTab[e.hash & (newCap - 1)] = e;
                     else if (e instanceof TreeNode)
+                        // 数组元素 为 树节点(则 遍历该树，将树的元素，重新分配)
                         ((TreeNode<K,V>)e).split(this, newTab, j, oldCap);
-                    else { // preserve order
+                    else {
+                        // preserve order，保持链表顺序，重新构造新的两条链表，并 设置到数组中
                         Node<K,V> loHead = null, loTail = null;
                         Node<K,V> hiHead = null, hiTail = null;
                         Node<K,V> next;
@@ -754,6 +778,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     final void treeifyBin(Node<K,V>[] tab, int hash) {
         int n, index; Node<K,V> e;
         if (tab == null || (n = tab.length) < MIN_TREEIFY_CAPACITY)
+            // 如果 数组长度小于 64，则扩容，不转成树
             resize();
         else if ((e = tab[index = (n - 1) & hash]) != null) {
             TreeNode<K,V> hd = null, tl = null;
@@ -763,11 +788,13 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                     hd = p;
                 else {
                     p.prev = tl;
+                    // 树节点 会维护next节点顺序，和 链表顺序一致, 用于遍历，构建红黑树（见 TreeNode.treeify 方法）
                     tl.next = p;
                 }
                 tl = p;
             } while ((e = e.next) != null);
-            if ((tab[index] = hd) != null)
+            if ((tab[index] = hd) != null) // Question: 此处为何 要判断是否为null ？我理解 hd 不可能为null呀
+                // 构建红黑树
                 hd.treeify(tab);
         }
     }
@@ -1843,10 +1870,13 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                 int ph, dir; K pk;
                 TreeNode<K,V> pl = p.left, pr = p.right, q;
                 if ((ph = p.hash) > h)
+                    // 比较二次hash值，值比 当前节点小，则去左子树找
                     p = pl;
                 else if (ph < h)
+                    // 比较二次hash值，值比 当前节点大，则去右子树找
                     p = pr;
                 else if ((pk = p.key) == k || (k != null && k.equals(pk)))
+                    // 比较二次hash值，值和当前节点值相等 并且 key相等，则说明找到，返回
                     return p;
                 else if (pl == null)
                     p = pr;
@@ -1857,6 +1887,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                          (dir = compareComparables(kc, k, pk)) != 0)
                     p = (dir < 0) ? pl : pr;
                 else if ((q = pr.find(h, k, kc)) != null)
+                    // 递归查询
                     return q;
                 else
                     p = pl;
@@ -1868,6 +1899,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
          * Calls find for root node.
          */
         final TreeNode<K,V> getTreeNode(int h, Object k) {
+            // 从root 节点开始找（什么是root节点？ 父节点 为null的节点）
             return ((parent != null) ? root() : this).find(h, k, null);
         }
 

@@ -300,7 +300,8 @@ public class LinkedHashMap<K,V>
         }
     }
 
-    void afterNodeAccess(Node<K,V> e) { // move node to last
+    void afterNodeAccess(Node<K,V> e) {
+        // move node to last， 如果要维护 访问顺序，则将该节点 放到 链表尾部
         LinkedHashMap.Entry<K,V> last;
         if (accessOrder && (last = tail) != e) {
             LinkedHashMap.Entry<K,V> p =
@@ -320,6 +321,7 @@ public class LinkedHashMap<K,V>
                 p.before = last;
                 last.after = p;
             }
+            // 将 传过来的节点改为尾结点
             tail = p;
             ++modCount;
         }
