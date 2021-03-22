@@ -858,6 +858,7 @@ public abstract class AbstractQueuedSynchronizer
             boolean interrupted = false;
             for (;;) {
                 final Node p = node.predecessor();
+                // 为何 还要判断 p==head ? 不解
                 if (p == head && tryAcquire(arg)) {
                     setHead(node);
                     p.next = null; // help GC
